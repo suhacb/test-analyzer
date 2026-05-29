@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\FlagDoubtfulExecution;
+use App\Models\AcceptanceCriteria;
 use App\Models\TestExecution;
+use App\Models\UserStory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -11,13 +14,53 @@ use Illuminate\View\View;
 
 class ReviewController extends Controller
 {
-    public function index(): View
+    public function index(): RedirectResponse
+    {
+        return redirect()->route('review.pending');
+    }
+
+    public function pending(): View
     {
         $pendingExecutions = TestExecution::with('testScenario.acceptanceCriteria.userStory')
             ->where('outcome', 'pending')
             ->orderBy('id')
             ->paginate(30, ['*'], 'exec_page');
 
+        return view('review.pending', compact('pendingExecutions'));
+    }
+
+    public function flagged(Request $request): View
+    {
+        $query = TestExecution::with('testScenario.acceptanceCriteria.userStory')
+            ->where('flagged_by_ai', true)
+            ->whereNull('ai_flag_dismissed_at');
+
+        if ($request->filled('user_story_id')) {
+            $query->whereHas('testScenario.acceptanceCriteria', fn ($q) =>
+                $q->where('user_story_id', $request->integer('user_story_id'))
+            );
+        }
+
+        if ($request->filled('acceptance_criteria_id')) {
+            $query->whereHas('testScenario', fn ($q) =>
+                $q->where('acceptance_criteria_id', $request->integer('acceptance_criteria_id'))
+            );
+        }
+
+        if ($request->filled('side')) {
+            $query->where('side', $request->input('side'));
+        }
+
+        $flaggedExecutions = $query->orderBy('id')->paginate(30, ['*'], 'flag_page');
+
+        $userStories       = UserStory::orderBy('code')->get(['id', 'code', 'title']);
+        $acceptanceCriteria = AcceptanceCriteria::orderBy('code')->get(['id', 'code', 'title', 'user_story_id']);
+
+        return view('review.flagged', compact('flaggedExecutions', 'userStories', 'acceptanceCriteria'));
+    }
+
+    public function failedJobs(): View
+    {
         $failedJobs = DB::table('failed_jobs')
             ->orderByDesc('failed_at')
             ->paginate(20, ['*'], 'job_page');
@@ -28,7 +71,7 @@ class ReviewController extends Controller
             return $job;
         });
 
-        return view('review.index', compact('pendingExecutions', 'failedJobs'));
+        return view('review.failed-jobs', compact('failedJobs'));
     }
 
     public function updateExecution(Request $request, TestExecution $testExecution): RedirectResponse
@@ -45,6 +88,35 @@ class ReviewController extends Controller
         ]);
 
         return back()->with('success', "Execution #{$testExecution->id} marked as {$data['outcome']}.");
+    }
+
+    public function analyseExecution(TestExecution $testExecution): RedirectResponse
+    {
+        FlagDoubtfulExecution::dispatch($testExecution);
+
+        return back()->with('success', "AI analysis queued for execution #{$testExecution->id}.");
+    }
+
+    public function bulkDismissFlags(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'ids'   => 'required|array|min:1',
+            'ids.*' => 'integer|exists:test_executions,id',
+        ]);
+
+        $count = TestExecution::whereIn('id', $data['ids'])
+            ->where('flagged_by_ai', true)
+            ->whereNull('ai_flag_dismissed_at')
+            ->update(['ai_flag_dismissed_at' => now()]);
+
+        return back()->with('success', "{$count} flag(s) dismissed.");
+    }
+
+    public function dismissFlag(TestExecution $testExecution): RedirectResponse
+    {
+        $testExecution->update(['ai_flag_dismissed_at' => now()]);
+
+        return back()->with('success', "Flag dismissed for execution #{$testExecution->id}.");
     }
 
     public function retryJob(string $uuid): RedirectResponse

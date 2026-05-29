@@ -12,13 +12,19 @@ class TestExecution extends Model
         'side',
         'outcome',
         'outcome_raw',
+        'outcome_comment',
+        'failure_cause',
         'comments',
         'tester_name',
         'browser',
         'tested_at',
         'source_file',
+        'source_file_hash',
         'review_notes',
         'reviewed_at',
+        'flagged_by_ai',
+        'ai_flag_reason',
+        'ai_flag_dismissed_at',
     ];
 
     protected $casts = [

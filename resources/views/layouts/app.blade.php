@@ -89,9 +89,11 @@
     <a href="{{ route('test-scenarios.index') }}" class="{{ request()->routeIs('test-scenarios.*') ? 'active' : '' }}">Scenarios</a>
     <a href="{{ route('test-executions.index') }}" class="{{ request()->routeIs('test-executions.*') ? 'active' : '' }}">Executions</a>
     <a href="{{ route('analytics.index') }}" class="{{ request()->routeIs('analytics.*') ? 'active' : '' }}">Analytics</a>
-    <a href="{{ route('review.index') }}" class="{{ request()->routeIs('review.*') ? 'active' : '' }}">
+    <a href="{{ route('review.pending') }}" class="{{ request()->routeIs('review.*') ? 'active' : '' }}">
         Review Queue
-        @php $rc = \App\Models\TestExecution::where('outcome','pending')->count() + \Illuminate\Support\Facades\DB::table('failed_jobs')->count(); @endphp
+        @php $rc = \App\Models\TestExecution::where('outcome','pending')->count()
+                 + \App\Models\TestExecution::where('flagged_by_ai', true)->whereNull('ai_flag_dismissed_at')->count()
+                 + \Illuminate\Support\Facades\DB::table('failed_jobs')->count(); @endphp
         @if($rc > 0)<span class="badge">{{ $rc }}</span>@endif
     </a>
 </nav>

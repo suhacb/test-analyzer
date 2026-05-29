@@ -27,14 +27,14 @@
         <div class="sub">{{ $stats['test_executions']['provider'] }} provider · {{ $stats['test_executions']['client'] }} UAT</div>
     </div>
     <div class="stat-card green">
-        <div class="label">Passed</div>
-        <div class="value">{{ $stats['test_executions']['pass'] }}</div>
-        <div class="sub">executions</div>
+        <div class="label">AC passed (both)</div>
+        <div class="value">{{ ($outcomeBreakdown['provider']['pass'] ?? 0) + ($outcomeBreakdown['provider']['soft_pass'] ?? 0) }}</div>
+        <div class="sub">provider · {{ ($outcomeBreakdown['client']['pass'] ?? 0) + ($outcomeBreakdown['client']['soft_pass'] ?? 0) }} client</div>
     </div>
     <div class="stat-card red">
-        <div class="label">Failed</div>
-        <div class="value">{{ $stats['test_executions']['fail'] }}</div>
-        <div class="sub">executions</div>
+        <div class="label">AC failed</div>
+        <div class="value">{{ max($outcomeBreakdown['provider']['fail'] ?? 0, $outcomeBreakdown['client']['fail'] ?? 0) }}</div>
+        <div class="sub">{{ $outcomeBreakdown['provider']['fail'] ?? 0 }} provider · {{ $outcomeBreakdown['client']['fail'] ?? 0 }} client</div>
     </div>
     @if($reviewCount > 0 || $failedJobsCount > 0)
     <div class="stat-card amber">
@@ -62,18 +62,43 @@
         </ul>
     </div>
     <div class="card">
-        <h2>Outcome breakdown</h2>
+        <h2>Outcome breakdown <span style="font-size:.75rem;font-weight:400;color:#94a3b8">by acceptance criteria · latest test</span></h2>
         <table>
-            <tr><th>Side</th><th>Pass</th><th>Soft pass</th><th>Fail</th><th>Pending</th></tr>
-            @foreach(['provider','client'] as $side)
+            <thead>
+                <tr>
+                    <th>Side</th>
+                    <th>Pass</th>
+                    <th>Soft pass</th>
+                    <th>Fail</th>
+                    <th>Pending</th>
+                    <th style="border-left:2px solid #e2e8f0;color:#92400e">Client backlog</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach(['provider' => 'Provider', 'client' => 'Client (UAT)'] as $side => $label)
             <tr>
-                <td><span class="badge-{{ $side }}">{{ $side === 'client' ? 'client (UAT)' : $side }}</span></td>
-                @foreach(['pass','soft_pass','fail','pending'] as $outcome)
-                <td><span class="badge-{{ $outcome }}">{{ \App\Models\TestExecution::where('side',$side)->where('outcome',$outcome)->count() }}</span></td>
+                <td><span class="badge-{{ $side }}">{{ $label }}</span></td>
+                @foreach(['pass', 'soft_pass', 'fail', 'pending'] as $outcome)
+                <td><span class="badge-{{ $outcome }}">{{ $outcomeBreakdown[$side][$outcome] ?? 0 }}</span></td>
                 @endforeach
+                <td style="border-left:2px solid #e2e8f0">
+                    @if($side === 'client')
+                        @php $bl = $outcomeBreakdown['client_backlog'] ?? 0 @endphp
+                        <span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:.78rem;font-weight:600">
+                            {{ $bl }}
+                        </span>
+                    @else
+                        <span style="color:#cbd5e1">—</span>
+                    @endif
+                </td>
             </tr>
             @endforeach
+            </tbody>
         </table>
+        <div style="font-size:.73rem;color:#94a3b8;margin-top:.6rem">
+            Outcome: worst-case across scenarios (fail › pending › soft pass › pass).
+            Client backlog: AC where provider's latest run passes and client either hasn't tested yet or provider has re-run since client's last test.
+        </div>
     </div>
 </div>
 

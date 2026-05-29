@@ -10,15 +10,20 @@ class UserStoryController extends Controller
 {
     public function index(): View
     {
-        $userStories   = UserStory::withCount('acceptanceCriteria')->orderBy('code')->get();
-        $acceptedAcIds = AcceptanceCriteria::acceptedIds();
+        $userStories = UserStory::withCount('acceptanceCriteria')->orderBy('code')->get();
 
-        $acceptedByUs = AcceptanceCriteria::whereIn('id', $acceptedAcIds)
-            ->selectRaw('user_story_id, COUNT(*) as cnt')
-            ->groupBy('user_story_id')
-            ->pluck('cnt', 'user_story_id');
+        $countByUs = function (array $ids): \Illuminate\Support\Collection {
+            return AcceptanceCriteria::whereIn('id', $ids)
+                ->selectRaw('user_story_id, COUNT(*) as cnt')
+                ->groupBy('user_story_id')
+                ->pluck('cnt', 'user_story_id');
+        };
 
-        return view('user-stories.index', compact('userStories', 'acceptedByUs'));
+        $acceptedByUs         = $countByUs(AcceptanceCriteria::acceptedIds()->all());
+        $acceptedByUsProvider = $countByUs(AcceptanceCriteria::acceptedIdsBySide('provider')->all());
+        $acceptedByUsClient   = $countByUs(AcceptanceCriteria::acceptedIdsBySide('client')->all());
+
+        return view('user-stories.index', compact('userStories', 'acceptedByUs', 'acceptedByUsProvider', 'acceptedByUsClient'));
     }
 
     public function show(UserStory $userStory): View

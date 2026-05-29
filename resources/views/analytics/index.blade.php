@@ -90,6 +90,8 @@
     @endif
 </div>
 
+@php use App\Services\AiOutcomeParser; @endphp
+
 @if($buckets->isEmpty())
     <div class="card" style="color:#94a3b8;text-align:center;padding:3rem">
         No timeline data for the selected filters.
@@ -173,6 +175,158 @@ new Chart(document.getElementById('lineChart'), {
 });
 </script>
 
+@endif
+
+{{-- AC progress over time --------------------------------------------------}}
+@if(!empty($acProgress))
+@php
+    $acLabels        = collect($acProgress);
+    $sideLabel       = request('side') ? ucfirst(request('side')) : 'Both sides';
+@endphp
+<div class="card" style="margin-top:1rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <h2 style="margin:0">Acceptance criteria progress</h2>
+        <span style="font-size:.8rem;color:#94a3b8">{{ $sideLabel }} · cumulative state at end of each period</span>
+    </div>
+    <canvas id="acProgressChart" style="max-height:300px"></canvas>
+</div>
+
+<script>
+(function () {
+    const labels = @json($buckets->values());
+    const raw    = @json($acProgress);
+
+    new Chart(document.getElementById('acProgressChart'), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label:           'Success',
+                    data:            raw.map(d => d.success),
+                    fill:            true,
+                    backgroundColor: 'rgba(34,197,94,.45)',
+                    borderColor:     '#16a34a',
+                    borderWidth:     1.5,
+                    tension:         0.3,
+                    pointRadius:     labels.length > 60 ? 0 : 2,
+                    order:           4,
+                },
+                {
+                    label:           'Partial success',
+                    data:            raw.map(d => d.partial_success),
+                    fill:            true,
+                    backgroundColor: 'rgba(245,158,11,.45)',
+                    borderColor:     '#d97706',
+                    borderWidth:     1.5,
+                    tension:         0.3,
+                    pointRadius:     labels.length > 60 ? 0 : 2,
+                    order:           3,
+                },
+                {
+                    label:           'Fail',
+                    data:            raw.map(d => d.fail),
+                    fill:            true,
+                    backgroundColor: 'rgba(239,68,68,.45)',
+                    borderColor:     '#dc2626',
+                    borderWidth:     1.5,
+                    tension:         0.3,
+                    pointRadius:     labels.length > 60 ? 0 : 2,
+                    order:           2,
+                },
+                {
+                    label:           'Pending',
+                    data:            raw.map(d => d.pending),
+                    fill:            true,
+                    backgroundColor: 'rgba(203,213,225,.45)',
+                    borderColor:     '#94a3b8',
+                    borderWidth:     1.5,
+                    tension:         0.3,
+                    pointRadius:     labels.length > 60 ? 0 : 2,
+                    order:           1,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { position: 'top' } },
+            scales: {
+                x: { stacked: true },
+                y: {
+                    stacked: true,
+                    beginAtZero: true,
+                    ticks: { stepSize: 1 },
+                    title: { display: true, text: '# ACs', font: { size: 11 } },
+                },
+            },
+        },
+    });
+}());
+</script>
+@endif
+
+{{-- Failure cause breakdown ------------------------------------------------}}
+@if($failureCauses->isNotEmpty())
+@php
+    $totalFails = $failureCauses->sum();
+    $causeColors = [
+        'software_bug'        => 'rgba(239,68,68,.75)',
+        'lack_of_data'        => 'rgba(245,158,11,.75)',
+        'no_integration_kis'  => 'rgba(139,92,246,.75)',
+        'no_integration_euez' => 'rgba(59,130,246,.75)',
+        'not_accessible'      => 'rgba(100,116,139,.75)',
+        'other'               => 'rgba(203,213,225,.75)',
+    ];
+@endphp
+<div class="card" style="margin-top:1rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <h2 style="margin:0">Failure cause breakdown</h2>
+        <span style="font-size:.8rem;color:#94a3b8">{{ $totalFails }} failed execution(s)</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:center">
+        <canvas id="causeChart" style="max-height:260px"></canvas>
+        <table>
+            <thead>
+                <tr><th>Cause</th><th style="text-align:right">Count</th><th style="text-align:right">%</th></tr>
+            </thead>
+            <tbody>
+            @foreach(AiOutcomeParser::CAUSE_LABELS as $key => $label)
+                @if(($failureCauses[$key] ?? 0) > 0)
+                <tr>
+                    <td style="font-size:.85rem">
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ $causeColors[$key] ?? '#cbd5e1' }};margin-right:.4rem"></span>
+                        {{ $label }}
+                    </td>
+                    <td style="text-align:right;font-weight:600">{{ $failureCauses[$key] }}</td>
+                    <td style="text-align:right;color:#94a3b8;font-size:.82rem">{{ round($failureCauses[$key] / $totalFails * 100) }}%</td>
+                </tr>
+                @endif
+            @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+new Chart(document.getElementById('causeChart'), {
+    type: 'doughnut',
+    data: {
+        labels: @json(AiOutcomeParser::CAUSE_LABELS),
+        datasets: [{
+            data:            @json(collect(AiOutcomeParser::CAUSES)->map(fn($k) => $failureCauses[$k] ?? 0)->values()),
+            backgroundColor: @json(array_values($causeColors)),
+            borderWidth: 1,
+        }],
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { position: 'bottom', labels: { font: { size: 11 } } },
+        },
+    },
+});
+</script>
 @endif
 
 @endsection

@@ -3,11 +3,12 @@
 @section('content')
 
 @php
-    $ac      = $testScenario->acceptanceCriteria;
-    $us      = $ac->userStory;
-    $bySlide = $testScenario->executions->keyBy('side');
-    $provider = $bySlide['provider'] ?? null;
-    $client   = $bySlide['client'] ?? null;
+    $ac       = $testScenario->acceptanceCriteria;
+    $us       = $ac->userStory;
+    $latest   = $testScenario->executions->sortByDesc('id')->unique('side')->keyBy('side');
+    $provider = $latest['provider'] ?? null;
+    $client   = $latest['client']   ?? null;
+    $history  = $testScenario->executions->sortByDesc('id');
 @endphp
 
 <div class="breadcrumb">
@@ -65,10 +66,23 @@
                 <label>Outcome (raw)</label>
                 <p>{{ $provider->outcome_raw ?? '—' }}</p>
             </div>
-            @if($provider->comments)
+            @if($provider->outcome_comment || $provider->comments)
             <div class="exec-field">
                 <label>Comments</label>
-                <p>{{ $provider->comments }}</p>
+                @if($provider->outcome_comment)
+                    <p>{{ $provider->outcome_comment }}</p>
+                @endif
+                @if($provider->comments)
+                    <p style="{{ $provider->outcome_comment ? 'margin-top:.35rem;color:#475569' : '' }}">{{ $provider->comments }}</p>
+                @endif
+            </div>
+            @endif
+            @if($provider->failure_cause)
+            <div class="exec-field">
+                <label>Failure cause</label>
+                <span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:.78rem;font-weight:600">
+                    {{ \App\Services\AiOutcomeParser::CAUSE_LABELS[$provider->failure_cause] ?? $provider->failure_cause }}
+                </span>
             </div>
             @endif
             @if($provider->review_notes)
@@ -103,10 +117,23 @@
                 <label>Outcome (raw)</label>
                 <p>{{ $client->outcome_raw ?? '—' }}</p>
             </div>
-            @if($client->comments)
+            @if($client->outcome_comment || $client->comments)
             <div class="exec-field">
                 <label>Comments</label>
-                <p>{{ $client->comments }}</p>
+                @if($client->outcome_comment)
+                    <p>{{ $client->outcome_comment }}</p>
+                @endif
+                @if($client->comments)
+                    <p style="{{ $client->outcome_comment ? 'margin-top:.35rem;color:#475569' : '' }}">{{ $client->comments }}</p>
+                @endif
+            </div>
+            @endif
+            @if($client->failure_cause)
+            <div class="exec-field">
+                <label>Failure cause</label>
+                <span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:.78rem;font-weight:600">
+                    {{ \App\Services\AiOutcomeParser::CAUSE_LABELS[$client->failure_cause] ?? $client->failure_cause }}
+                </span>
             </div>
             @endif
             @if($client->review_notes)
@@ -129,5 +156,42 @@
         @endif
     </div>
 </div>
+
+
+@if($history->count() > 2)
+<h2 style="margin:1.5rem 0 .75rem">Execution history ({{ $history->count() }} total)</h2>
+<div class="card" style="padding:0;overflow:hidden">
+<table>
+    <thead>
+        <tr>
+            <th style="width:90px">Side</th>
+            <th style="width:110px">Outcome</th>
+            <th style="width:110px">Date</th>
+            <th>Tester</th>
+            <th>Comments</th>
+            <th style="width:80px">Review</th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach($history as $ex)
+    <tr style="{{ $ex->id === ($latest[$ex->side]->id ?? null) ? 'background:#f8fafc;font-weight:500' : '' }}">
+        <td><span class="badge-{{ $ex->side }}">{{ $ex->side }}</span></td>
+        <td><x-outcome :outcome="$ex->outcome" /></td>
+        <td style="font-size:.82rem;color:#64748b;white-space:nowrap">{{ $ex->tested_at?->format('d.m.Y') ?? '—' }}</td>
+        <td style="font-size:.82rem">{{ $ex->tester_name ?? '—' }}</td>
+        <td style="font-size:.82rem;color:#475569">{{ $ex->comments ?? '—' }}</td>
+        <td style="font-size:.75rem;color:#94a3b8">
+            @if($ex->reviewed_at)
+                ✓ {{ $ex->reviewed_at->format('d.m.Y') }}
+            @else
+                —
+            @endif
+        </td>
+    </tr>
+    @endforeach
+    </tbody>
+</table>
+</div>
+@endif
 
 @endsection

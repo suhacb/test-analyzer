@@ -29,6 +29,14 @@
         <td>
             <a href="{{ route('test-scenarios.show', $ex->testScenario) }}">{{ $ex->testScenario->code }}</a><br>
             <span style="font-size:.78rem;color:#64748b">{{ $ex->testScenario->acceptanceCriteria->userStory->code }}</span>
+            @if(!is_null($ex->flagged_by_ai))
+                @if($ex->flagged_by_ai)
+                    <br><span class="badge-fail" style="font-size:.72rem;margin-top:.3rem;display:inline-block">⚠ AI: doubtful</span>
+                    <div style="font-size:.72rem;color:#94a3b8;margin-top:.2rem">{{ $ex->ai_flag_reason }}</div>
+                @else
+                    <br><span style="font-size:.72rem;color:#22c55e;margin-top:.3rem;display:inline-block">✓ AI: ok</span>
+                @endif
+            @endif
         </td>
         <td><span class="badge-{{ $ex->side }}">{{ $ex->side }}</span></td>
         <td><div class="raw-text">{{ $ex->outcome_raw }}</div></td>
@@ -48,6 +56,12 @@
                     <textarea name="review_notes" rows="2" placeholder="Review notes (optional)">{{ $ex->review_notes }}</textarea>
                 </div>
             </form>
+            @if(is_null($ex->flagged_by_ai))
+            <form method="POST" action="{{ route('review.executions.analyse', $ex) }}" style="margin-top:.4rem">
+                @csrf
+                <button type="submit" class="btn btn-sm" style="background:#6366f1;color:#fff;font-size:.75rem">AI check</button>
+            </form>
+            @endif
         </td>
     </tr>
     @endforeach
@@ -55,6 +69,47 @@
 </table>
 </div>
 <div class="pagination">{{ $pendingExecutions->appends(['job_page' => request('job_page')])->links() }}</div>
+@endif
+
+{{-- AI-flagged executions --}}
+<div class="section-header" style="margin-top:2rem">
+    <h2>AI-flagged executions <span class="badge-fail" style="font-size:.85rem">{{ $flaggedExecutions->total() }}</span></h2>
+</div>
+
+@if($flaggedExecutions->isEmpty())
+    <div class="card" style="color:#64748b">No executions flagged as doubtful.</div>
+@else
+<div class="card" style="padding:0;overflow:hidden">
+<table>
+    <thead>
+        <tr>
+            <th>Scenario</th>
+            <th>Side</th>
+            <th>Outcome</th>
+            <th>Tester comment</th>
+            <th>AI reason</th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach($flaggedExecutions as $ex)
+    <tr>
+        <td>
+            <a href="{{ route('test-scenarios.show', $ex->testScenario) }}">{{ $ex->testScenario->code }}</a><br>
+            <span style="font-size:.78rem;color:#64748b">{{ $ex->testScenario->acceptanceCriteria->userStory->code }}</span>
+        </td>
+        <td><span class="badge-{{ $ex->side }}">{{ $ex->side }}</span></td>
+        <td>
+            <span class="badge-{{ $ex->outcome === 'pending' ? 'pending' : 'fail' }}" style="font-size:.8rem">{{ $ex->outcome }}</span><br>
+            <span style="font-size:.75rem;color:#94a3b8">{{ $ex->outcome_raw }}</span>
+        </td>
+        <td style="font-size:.82rem;max-width:240px">{{ $ex->comments ?? '—' }}</td>
+        <td style="font-size:.82rem;color:#f59e0b;max-width:260px">{{ $ex->ai_flag_reason }}</td>
+    </tr>
+    @endforeach
+    </tbody>
+</table>
+</div>
+<div class="pagination">{{ $flaggedExecutions->appends(request()->except('flag_page'))->links() }}</div>
 @endif
 
 {{-- Failed import jobs --}}
