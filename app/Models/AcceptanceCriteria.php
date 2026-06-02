@@ -12,7 +12,9 @@ class AcceptanceCriteria extends Model
 {
     protected $table = 'acceptance_criteria';
 
-    protected $fillable = ['user_story_id', 'code', 'title'];
+    protected $fillable = ['user_story_id', 'code', 'title', 'ai_summary', 'ai_summary_generated_at'];
+
+    protected $casts = ['ai_summary_generated_at' => 'datetime'];
 
     public function userStory(): BelongsTo
     {

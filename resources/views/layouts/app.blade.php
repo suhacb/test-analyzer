@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <script>window.OllamaModels = { quick: '{{ config("ollama.quick_model") }}', smart: '{{ config("ollama.smart_model") }}' };</script>
     <title>@yield('title', 'Test Analyzer')</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -103,5 +105,7 @@
     @endif
     @yield('content')
 </div>
+@stack('chat-context')
+@include('components.chat-panel')
 </body>
 </html>

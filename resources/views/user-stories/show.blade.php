@@ -1,5 +1,8 @@
 @extends('layouts.app')
 @section('title', $userStory->code)
+@push('chat-context')
+<script>window.ChatContext = { type: 'user_story', id: {{ $userStory->id }}, label: '{{ addslashes($userStory->code) }} — {{ addslashes($userStory->title) }}' };</script>
+@endpush
 @section('content')
 
 <div class="breadcrumb">
@@ -16,10 +19,37 @@
         $allAccepted = $userStory->acceptanceCriteria->every(fn($ac) => $acceptedAcIds->contains($ac->id));
         $anyAccepted = $userStory->acceptanceCriteria->some(fn($ac) => $acceptedAcIds->contains($ac->id));
     @endphp
-    <span class="{{ $allAccepted ? 'badge-accepted' : ($anyAccepted ? 'badge-partial' : 'badge-unstarted') }}" style="font-size:.9rem;padding:4px 12px">
-        {{ $allAccepted ? '✓ Accepted' : ($anyAccepted ? 'In progress' : 'Not started') }}
-    </span>
+    <div style="display:flex;gap:.6rem;align-items:center">
+        <span class="{{ $allAccepted ? 'badge-accepted' : ($anyAccepted ? 'badge-partial' : 'badge-unstarted') }}" style="font-size:.9rem;padding:4px 12px">
+            {{ $allAccepted ? '✓ Accepted' : ($anyAccepted ? 'In progress' : 'Not started') }}
+        </span>
+        <form method="POST" action="{{ route('user-stories.analyse', $userStory) }}">
+            @csrf
+            <button type="submit" class="btn btn-sm" style="background:#6366f1;color:#fff">
+                {{ $userStory->ai_report ? 'Re-analyse' : 'Analyse with AI' }}
+            </button>
+        </form>
+    </div>
 </div>
+
+@if(session('success'))
+<div class="card" style="margin-bottom:1.25rem;border-left:4px solid #22c55e;padding:.75rem 1rem;color:#166534">
+    {{ session('success') }}
+</div>
+@endif
+
+{{-- AI report --}}
+@if($userStory->ai_report)
+<div class="card" style="margin-bottom:1.25rem;border-left:4px solid #6366f1">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+        <h2 style="margin:0;font-size:1rem">AI Report</h2>
+        <span style="font-size:.75rem;color:#94a3b8">
+            Generated {{ $userStory->ai_report_generated_at?->format('d.m.Y H:i') }}
+        </span>
+    </div>
+    <div style="font-size:.9rem;color:#334155;white-space:pre-wrap;line-height:1.65">{{ $userStory->ai_report }}</div>
+</div>
+@endif
 
 <div class="card" style="padding:0;overflow:hidden">
 <table>

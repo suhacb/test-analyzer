@@ -8,7 +8,9 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class UserStory extends Model
 {
-    protected $fillable = ['code', 'title'];
+    protected $fillable = ['code', 'title', 'ai_report', 'ai_report_generated_at'];
+
+    protected $casts = ['ai_report_generated_at' => 'datetime'];
 
     public function acceptanceCriteria(): HasMany
     {

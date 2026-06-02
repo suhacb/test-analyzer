@@ -14,6 +14,7 @@ class OllamaService
         private readonly string $smartModel,
         private readonly string $embedModel,
         private readonly int $timeout,
+        private readonly int $smartTimeout,
     ) {}
 
     /**
@@ -21,10 +22,10 @@ class OllamaService
      *
      * @param  array<int, array{role: string, content: string}>  $messages
      */
-    public function chat(string $model, array $messages): string
+    public function chat(string $model, array $messages, ?int $timeout = null): string
     {
         try {
-            $response = Http::timeout($this->timeout)
+            $response = Http::timeout($timeout ?? $this->timeout)
                 ->post("{$this->baseUrl}/api/chat", [
                     'model'    => $model,
                     'messages' => $messages,
@@ -94,7 +95,7 @@ class OllamaService
      */
     public function chatSmart(array $messages): string
     {
-        return $this->chat($this->smartModel, $messages);
+        return $this->chat($this->smartModel, $messages, $this->smartTimeout);
     }
 
     /** List models currently available in this Ollama instance. */
@@ -111,6 +112,64 @@ class OllamaService
         }
 
         return array_column($response->json('models', []), 'name');
+    }
+
+    /**
+     * Stream a chat response, calling $onToken for each emitted token.
+     *
+     * @param  array<int, array{role: string, content: string}>  $messages
+     */
+    public function streamChat(string $model, array $messages, callable $onToken, ?int $timeout = null): void
+    {
+        $client = new \GuzzleHttp\Client(['timeout' => $timeout ?? $this->timeout]);
+
+        try {
+            $response = $client->post("{$this->baseUrl}/api/chat", [
+                'json'   => ['model' => $model, 'messages' => $messages, 'stream' => true],
+                'stream' => true,
+            ]);
+        } catch (\GuzzleHttp\Exception\ConnectException $e) {
+            throw new OllamaException("Cannot reach Ollama at {$this->baseUrl}: {$e->getMessage()}", previous: $e);
+        }
+
+        $body   = $response->getBody();
+        $buffer = '';
+
+        while (! $body->eof()) {
+            $buffer .= $body->read(512);
+
+            while (($pos = strpos($buffer, "\n")) !== false) {
+                $line   = substr($buffer, 0, $pos);
+                $buffer = substr($buffer, $pos + 1);
+
+                if (trim($line) === '') {
+                    continue;
+                }
+
+                $data  = json_decode($line, true);
+                $token = $data['message']['content'] ?? '';
+
+                if ($token !== '') {
+                    $onToken($token);
+                }
+
+                if ($data['done'] ?? false) {
+                    return;
+                }
+            }
+        }
+    }
+
+    /** Convenience: stream using the configured quick model. */
+    public function streamChatQuick(array $messages, callable $onToken): void
+    {
+        $this->streamChat($this->quickModel, $messages, $onToken);
+    }
+
+    /** Convenience: stream using the configured smart model. */
+    public function streamChatSmart(array $messages, callable $onToken): void
+    {
+        $this->streamChat($this->smartModel, $messages, $onToken, $this->smartTimeout);
     }
 
     /** Convenience: embed using the configured embed model. */

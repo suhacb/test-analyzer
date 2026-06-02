@@ -8,6 +8,7 @@ use App\Models\TestScenario;
 use App\Models\UserStory;
 use App\Services\AiOutcomeParser;
 use App\Services\TestReportParser;
+use App\Services\VectorIndexer;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -25,7 +26,7 @@ class ProcessDocument implements ShouldQueue
         $this->onQueue('documents');
     }
 
-    public function handle(TestReportParser $parser, AiOutcomeParser $aiParser): void
+    public function handle(TestReportParser $parser, AiOutcomeParser $aiParser, VectorIndexer $indexer): void
     {
         $hash = md5_file($this->path);
 
@@ -102,7 +103,7 @@ class ProcessDocument implements ShouldQueue
             );
         }
 
-        TestExecution::create([
+        $execution = TestExecution::create([
             'test_scenario_id' => $scenario->id,
             'side'             => $this->side,
             'outcome'          => $outcome,
@@ -116,6 +117,15 @@ class ProcessDocument implements ShouldQueue
             'source_file'      => $this->path,
             'source_file_hash' => $hash,
         ]);
+
+        try {
+            $indexer->indexExecution($execution);
+        } catch (\Throwable $e) {
+            Log::warning('ProcessDocument: Qdrant indexing failed', [
+                'execution_id' => $execution->id,
+                'error'        => $e->getMessage(),
+            ]);
+        }
 
         Log::info('ProcessDocument: done', [
             'file'         => basename($this->path),

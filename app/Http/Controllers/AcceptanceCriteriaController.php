@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\AnalyzeAcceptanceCriteria;
 use App\Models\AcceptanceCriteria;
 use App\Models\UserStory;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -59,5 +61,12 @@ class AcceptanceCriteriaController extends Controller
         $acceptanceCriteria->load(['userStory', 'testScenarios.executions']);
 
         return view('acceptance-criteria.show', compact('acceptanceCriteria'));
+    }
+
+    public function analyse(AcceptanceCriteria $acceptanceCriteria): RedirectResponse
+    {
+        AnalyzeAcceptanceCriteria::dispatch($acceptanceCriteria);
+
+        return back()->with('success', "AI analysis queued for {$acceptanceCriteria->code}.");
     }
 }

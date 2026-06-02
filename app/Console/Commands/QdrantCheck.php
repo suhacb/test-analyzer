@@ -26,11 +26,12 @@ class QdrantCheck extends Command
             $this->line('No collections yet.');
         } else {
             foreach ($collections as $name) {
-                $this->line("  • {$name}");
+                $count = $qdrant->pointCount($name);
+                $this->line("  • {$name}  ({$count} points)");
             }
         }
 
-        $this->info('Qdrant is reachable. Vector size configured: ' . $qdrant->getVectorSize());
+        $this->info('Qdrant reachable. Configured vector size: ' . $qdrant->getVectorSize());
 
         return self::SUCCESS;
     }

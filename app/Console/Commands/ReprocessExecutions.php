@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\TestExecution;
 use App\Services\AiOutcomeParser;
+use App\Services\VectorIndexer;
 use Illuminate\Console\Command;
 
 class ReprocessExecutions extends Command
@@ -14,7 +15,7 @@ class ReprocessExecutions extends Command
 
     protected $description = 'Re-parse outcome cells and classify failure causes on already-imported executions';
 
-    public function handle(AiOutcomeParser $parser): int
+    public function handle(AiOutcomeParser $parser, VectorIndexer $indexer): int
     {
         // ── Pass 1: outcome + comment re-parsing ──────────────────────────────
 
@@ -97,6 +98,33 @@ class ReprocessExecutions extends Command
             $this->info('Failure cause classification complete.');
         } else {
             $this->info('Pass 2 — no unclassified failures found.');
+        }
+
+        // ── Pass 3: re-index updated executions in Qdrant ─────────────────────
+
+        $toIndex = TestExecution::with('testScenario.acceptanceCriteria.userStory');
+
+        if ($this->option('ids')) {
+            $toIndex->whereIn('id', array_map('intval', explode(',', $this->option('ids'))));
+        } elseif (! $this->option('force')) {
+            // Only re-index those that were touched in passes 1 or 2
+            $touchedIds = $forOutcome->pluck('id')->merge($forCause->pluck('id'))->unique();
+            if ($touchedIds->isEmpty()) {
+                $this->info('Pass 3 — nothing to re-index.');
+                return self::SUCCESS;
+            }
+            $toIndex->whereIn('id', $touchedIds);
+        }
+
+        $executions = $toIndex->get();
+
+        if ($executions->isNotEmpty()) {
+            $this->info("Pass 3 — re-indexing {$executions->count()} execution(s) in Qdrant…");
+
+            $this->withProgressBar($executions, fn (TestExecution $ex) => $indexer->indexExecution($ex));
+
+            $this->newLine(2);
+            $this->info('Qdrant index updated.');
         }
 
         return self::SUCCESS;

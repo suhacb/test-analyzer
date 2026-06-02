@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AcceptanceCriteriaController;
+use App\Http\Controllers\ChatController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ReviewController;
@@ -13,10 +14,14 @@ Route::get('/', DashboardController::class)->name('dashboard');
 Route::get('analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
 
 Route::resource('user-stories', UserStoryController::class)->only(['index', 'show']);
+Route::post('user-stories/{userStory}/analyse', [UserStoryController::class, 'analyse'])->name('user-stories.analyse');
 Route::resource('acceptance-criteria', AcceptanceCriteriaController::class)->only(['index', 'show']);
+Route::post('acceptance-criteria/{acceptanceCriteria}/analyse', [AcceptanceCriteriaController::class, 'analyse'])->name('acceptance-criteria.analyse');
 Route::get('test-scenarios/export', [TestScenarioController::class, 'export'])->name('test-scenarios.export');
 Route::resource('test-scenarios', TestScenarioController::class)->only(['index', 'show']);
 Route::resource('test-executions', TestExecutionController::class)->only(['index', 'show']);
+
+Route::post('chat/stream', [ChatController::class, 'stream'])->name('chat.stream');
 
 Route::prefix('review')->name('review.')->group(function () {
     Route::get('/',             [ReviewController::class, 'index'])->name('index');

@@ -33,6 +33,14 @@ class QdrantService
         return in_array($name, $this->getCollections(), true);
     }
 
+    /** Returns the number of indexed points in a collection. */
+    public function pointCount(string $name): int
+    {
+        $response = $this->call(fn () => $this->client()->get("/collections/{$name}"), "get collection '{$name}'");
+
+        return (int) ($response->json('result.points_count') ?? 0);
+    }
+
     /**
      * Create a collection if it does not already exist.
      * Distance is cosine, which suits normalised text embeddings.

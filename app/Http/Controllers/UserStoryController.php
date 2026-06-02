@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\AnalyzeUserStory;
 use App\Models\AcceptanceCriteria;
 use App\Models\UserStory;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
 class UserStoryController extends Controller
@@ -32,5 +34,12 @@ class UserStoryController extends Controller
         $acceptedAcIds = AcceptanceCriteria::acceptedIds();
 
         return view('user-stories.show', compact('userStory', 'acceptedAcIds'));
+    }
+
+    public function analyse(UserStory $userStory): RedirectResponse
+    {
+        AnalyzeUserStory::dispatch($userStory);
+
+        return back()->with('success', "AI report queued for {$userStory->code}.");
     }
 }
