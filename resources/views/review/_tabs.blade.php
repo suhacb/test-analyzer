@@ -1,6 +1,7 @@
 @php
     $pendingCount = \App\Models\TestExecution::where('outcome', 'pending')->count();
     $flaggedCount = \App\Models\TestExecution::where('flagged_by_ai', true)->whereNull('ai_flag_dismissed_at')->count();
+    $blankCount   = \App\Models\TestExecution::blank()->count();
     $failedCount  = \Illuminate\Support\Facades\DB::table('failed_jobs')->count();
 @endphp
 <div style="display:flex;gap:.25rem;margin-bottom:1.5rem;border-bottom:2px solid #e2e8f0;padding-bottom:0">
@@ -14,7 +15,8 @@
                 $count > 0 ? sprintf(' <span style="background:%s;color:#fff;border-radius:999px;font-size:.7rem;padding:1px 6px;margin-left:4px">%d</span>', e($color), $count) : ''
             );
     @endphp
-    {!! $tab('review.pending',          'Pending',      $pendingCount, '#f59e0b') !!}
-    {!! $tab('review.flagged',          'AI Flagged',   $flaggedCount, '#ef4444') !!}
-    {!! $tab('review.failed-jobs.index','Failed Imports',$failedCount, '#ef4444') !!}
+    {!! $tab('review.pending',          'Pending',       $pendingCount, '#f59e0b') !!}
+    {!! $tab('review.blank',            'Blank',         $blankCount,   '#f59e0b') !!}
+    {!! $tab('review.flagged',          'AI Flagged',    $flaggedCount, '#ef4444') !!}
+    {!! $tab('review.failed-jobs.index','Failed Imports',$failedCount,  '#ef4444') !!}
 </div>

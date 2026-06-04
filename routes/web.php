@@ -26,12 +26,14 @@ Route::post('chat/stream', [ChatController::class, 'stream'])->name('chat.stream
 Route::prefix('review')->name('review.')->group(function () {
     Route::get('/',             [ReviewController::class, 'index'])->name('index');
     Route::get('pending',       [ReviewController::class, 'pending'])->name('pending');
+    Route::get('blank',         [ReviewController::class, 'blank'])->name('blank');
     Route::get('flagged',       [ReviewController::class, 'flagged'])->name('flagged');
     Route::get('failed-jobs',   [ReviewController::class, 'failedJobs'])->name('failed-jobs.index');
 
     Route::post('executions/bulk-dismiss',              [ReviewController::class, 'bulkDismissFlags'])->name('executions.bulk-dismiss');
 
     Route::patch('executions/{testExecution}',          [ReviewController::class, 'updateExecution'])->name('executions.update');
+    Route::delete('executions/{testExecution}',         [ReviewController::class, 'destroyExecution'])->name('executions.destroy');
     Route::post('executions/{testExecution}/analyse',   [ReviewController::class, 'analyseExecution'])->name('executions.analyse');
     Route::post('executions/{testExecution}/dismiss-flag', [ReviewController::class, 'dismissFlag'])->name('executions.dismiss-flag');
 

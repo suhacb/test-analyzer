@@ -74,20 +74,45 @@ class ReviewController extends Controller
         return view('review.failed-jobs', compact('failedJobs'));
     }
 
+    public function blank(): View
+    {
+        $blankExecutions = TestExecution::with('testScenario.acceptanceCriteria.userStory')
+            ->blank()
+            ->orderBy('id')
+            ->paginate(30, ['*'], 'blank_page');
+
+        return view('review.blank', compact('blankExecutions'));
+    }
+
     public function updateExecution(Request $request, TestExecution $testExecution): RedirectResponse
     {
         $data = $request->validate([
             'outcome'      => 'required|in:pass,soft_pass,fail',
             'review_notes' => 'nullable|string|max:2000',
+            'tested_at'    => 'nullable|date',
         ]);
 
-        $testExecution->update([
+        $update = [
             'outcome'      => $data['outcome'],
             'review_notes' => $data['review_notes'] ?? null,
             'reviewed_at'  => now(),
-        ]);
+        ];
+
+        if ($request->has('tested_at')) {
+            $update['tested_at'] = $data['tested_at'];
+        }
+
+        $testExecution->update($update);
 
         return back()->with('success', "Execution #{$testExecution->id} marked as {$data['outcome']}.");
+    }
+
+    public function destroyExecution(TestExecution $testExecution): RedirectResponse
+    {
+        $id = $testExecution->id;
+        $testExecution->delete();
+
+        return back()->with('success', "Execution #{$id} deleted.");
     }
 
     public function analyseExecution(TestExecution $testExecution): RedirectResponse

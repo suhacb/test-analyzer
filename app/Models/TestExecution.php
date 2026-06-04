@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class TestExecution extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'test_scenario_id',
         'side',
@@ -31,6 +35,14 @@ class TestExecution extends Model
         'tested_at'   => 'datetime',
         'reviewed_at' => 'datetime',
     ];
+
+    /** Executions imported from a template that was never filled in. */
+    public function scopeBlank(Builder $query): Builder
+    {
+        return $query
+            ->where(fn (Builder $q) => $q->whereNull('outcome_raw')->orWhere('outcome_raw', ''))
+            ->whereNull('reviewed_at');
+    }
 
     public function testScenario(): BelongsTo
     {

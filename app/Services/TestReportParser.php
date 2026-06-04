@@ -115,23 +115,23 @@ class TestReportParser
                 $label = $this->normaliseLabel($cell);
 
                 switch ($label) {
-                    case 'testni scenarij:':
+                    case 'testni scenarij':
                         $fields['Testni scenarij:'] = $cells[$ci + 1] ?? '';
                         break;
 
-                    case 'kriterij sprejemljivosti:':
+                    case 'kriterij sprejemljivosti':
                         $fields['_ac_raw'] = $cells[$ci + 1] ?? '';
                         break;
 
-                    case 'naziv testnega scenarija:':
+                    case 'naziv testnega scenarija':
                         $fields['Naziv testnega scenarija:'] = $cells[$ci + 1] ?? '';
                         break;
 
-                    case 'uporabniška vloga:':
+                    case 'uporabniška vloga':
                         $fields['Uporabniška vloga:'] = $cells[$ci + 1] ?? '';
                         break;
 
-                    case 'predpogoji, ki morajo biti upoštevani:':
+                    case 'predpogoji, ki morajo biti upoštevani':
                         $fields['Predpogoji, ki morajo biti upoštevani:'] = $cells[$ci + 1] ?? '';
                         break;
 
@@ -147,7 +147,7 @@ class TestReportParser
                         $fields['Opombe'] = $cells[$ci + 1] ?? '';
                         break;
 
-                    case 'datum in čas testiranja:':
+                    case 'datum in čas testiranja':
                         $fields['Datum in čas testiranja:'] = $cells[$ci + 1] ?? '';
                         break;
 
@@ -177,7 +177,7 @@ class TestReportParser
 
     private function normaliseLabel(string $cell): string
     {
-        return mb_strtolower($this->clean($cell));
+        return rtrim(mb_strtolower($this->clean($cell)), ':');
     }
 
     private function extractByPattern(string $value, string $pattern): string
@@ -230,19 +230,13 @@ class TestReportParser
 
     private function parseDate(string $raw): ?string
     {
-        $normalised = trim(preg_replace('/[;,]/', '', $this->clean($raw)));
-
-        if ($normalised === '') {
+        // Extract the first dd.mm.yyyy pattern, ignoring any surrounding time/text
+        if (!preg_match('/(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/', $this->clean($raw), $m)) {
             return null;
         }
 
-        foreach (['d.m.Y H:i', 'd.m.Y', 'd. m. Y H:i', 'd. m. Y'] as $format) {
-            $dt = \DateTime::createFromFormat($format, $normalised);
-            if ($dt !== false) {
-                return $dt->format('Y-m-d H:i:s');
-            }
-        }
+        $dt = \DateTime::createFromFormat('j.n.Y', "{$m[1]}.{$m[2]}.{$m[3]}");
 
-        return null;
+        return $dt !== false ? $dt->format('Y-m-d') : null;
     }
 }

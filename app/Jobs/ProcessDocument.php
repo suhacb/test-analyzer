@@ -67,13 +67,13 @@ class ProcessDocument implements ShouldQueue
             ],
         );
 
-        $alreadyImported = TestExecution::where('test_scenario_id', $scenario->id)
+        $existing = TestExecution::where('test_scenario_id', $scenario->id)
             ->where('side', $this->side)
-            ->where('source_file_hash', $hash)
-            ->exists();
+            ->where('source_file', $this->path)
+            ->first();
 
-        if ($alreadyImported) {
-            Log::info('ProcessDocument: skipped (already imported)', [
+        if ($existing && $existing->source_file_hash === $hash) {
+            Log::info('ProcessDocument: skipped (unchanged)', [
                 'file'     => basename($this->path),
                 'scenario' => $data['scenario_code'],
                 'side'     => $this->side,
@@ -103,9 +103,7 @@ class ProcessDocument implements ShouldQueue
             );
         }
 
-        $execution = TestExecution::create([
-            'test_scenario_id' => $scenario->id,
-            'side'             => $this->side,
+        $fields = [
             'outcome'          => $outcome,
             'outcome_raw'      => $data['outcome_raw'],
             'outcome_comment'  => $outcomeComment,
@@ -116,7 +114,23 @@ class ProcessDocument implements ShouldQueue
             'tested_at'        => $data['tested_at'],
             'source_file'      => $this->path,
             'source_file_hash' => $hash,
-        ]);
+        ];
+
+        if ($existing) {
+            // File was overwritten — update in-place and clear stale review state
+            $existing->update($fields + [
+                'review_notes'         => null,
+                'reviewed_at'          => null,
+                'flagged_by_ai'        => false,
+                'ai_flag_reason'       => null,
+                'ai_flag_dismissed_at' => null,
+            ]);
+            $execution = $existing;
+            $action = 'updated';
+        } else {
+            $execution = TestExecution::create(['test_scenario_id' => $scenario->id, 'side' => $this->side] + $fields);
+            $action = 'created';
+        }
 
         try {
             $indexer->indexExecution($execution);
@@ -127,14 +141,14 @@ class ProcessDocument implements ShouldQueue
             ]);
         }
 
-        Log::info('ProcessDocument: done', [
-            'file'         => basename($this->path),
-            'scenario'     => $data['scenario_code'],
-            'side'         => $this->side,
-            'outcome'      => $outcome,
+        Log::info("ProcessDocument: {$action}", [
+            'file'          => basename($this->path),
+            'scenario'      => $data['scenario_code'],
+            'side'          => $this->side,
+            'outcome'       => $outcome,
             'failure_cause' => $failureCause,
-            'needs_review' => $parsed['needs_review'],
-            'hash'         => $hash,
+            'needs_review'  => $parsed['needs_review'],
+            'hash'          => $hash,
         ]);
     }
 
