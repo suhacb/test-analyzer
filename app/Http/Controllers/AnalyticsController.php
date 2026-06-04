@@ -21,7 +21,8 @@ class AnalyticsController extends Controller
 
         $base = DB::table('test_executions as te')
             ->join('test_scenarios as ts', 'ts.id', '=', 'te.test_scenario_id')
-            ->join('acceptance_criteria as ac', 'ac.id', '=', 'ts.acceptance_criteria_id');
+            ->join('acceptance_criteria as ac', 'ac.id', '=', 'ts.acceptance_criteria_id')
+            ->whereNull('te.deleted_at');
 
         if ($side)        $base->where('te.side', $side);
         if ($userStoryId) $base->where('ac.user_story_id', $userStoryId);

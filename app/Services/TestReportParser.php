@@ -209,7 +209,7 @@ class TestReportParser
         return $v === '' ? null : $v;
     }
 
-    private function normaliseOutcome(string $raw): string
+    public function normaliseOutcome(string $raw): string
     {
         $upper = mb_strtoupper($raw);
 
@@ -217,11 +217,11 @@ class TestReportParser
             return 'fail';
         }
 
-        if (str_contains($upper, 'DELNO OK')) {
+        if (str_contains($upper, 'DELNO')) {
             return 'soft_pass';
         }
 
-        if (str_contains($upper, 'TEST OK') || str_contains($upper, 'USPE')) {
+        if (preg_match('/TEST[\s\-–—]*OK/u', $upper) || str_contains($upper, 'USPE')) {
             return 'pass';
         }
 
